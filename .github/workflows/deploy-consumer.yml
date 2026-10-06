@@ -1,0 +1,28 @@
+name: Build and Push Consumer
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Login to ACR
+        run: |
+          docker login ${{ secrets.AZ_LOGIN_SERVER }} \
+          -u ${{ secrets.ACR_USERNAME }} \
+          -p ${{ secrets.ACR_PASSWORD }}
+
+      - name: Build Image
+        run: |
+          docker build -t ${{ secrets.AZ_LOGIN_SERVER }}/notification-consumer:v1 .
+
+      - name: Push Image
+        run: |
+          docker push ${{ secrets.AZ_LOGIN_SERVER }}/notification-consumer:v1

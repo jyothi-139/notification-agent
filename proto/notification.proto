@@ -1,0 +1,32 @@
+syntax = "proto3";
+
+package notification;
+
+option go_package = "./proto";
+
+service NotificationService {
+
+  rpc GetStatus(StatusRequest)
+      returns (StatusResponse);
+
+  rpc GetHistory(HistoryRequest)
+      returns (HistoryResponse);
+}
+
+message StatusRequest {
+  string notification_id = 1;
+}
+
+message StatusResponse {
+  string notification_id = 1;
+  string status = 2;
+  string message_id = 3;
+}
+
+message HistoryRequest {
+  string notification_id = 1;
+}
+
+message HistoryResponse {
+  repeated string records = 1;
+}
