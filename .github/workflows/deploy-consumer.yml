@@ -21,8 +21,8 @@ jobs:
 
       - name: Build Image
         run: |
-          docker build -t ${{ secrets.AZ_LOGIN_SERVER }}/notification-consumer:v1 .
+          docker build -t ${{ secrets.AZ_LOGIN_SERVER }}/notification-consumer:v2 .
 
       - name: Push Image
         run: |
-          docker push ${{ secrets.AZ_LOGIN_SERVER }}/notification-consumer:v1
+          docker push ${{ secrets.AZ_LOGIN_SERVER }}/notification-consumer:v2
