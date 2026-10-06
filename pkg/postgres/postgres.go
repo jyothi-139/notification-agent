@@ -11,6 +11,11 @@ import (
 
 func NewConnection() (*sql.DB, error) {
 
+	log.Println("DB_HOST:", os.Getenv("DB_HOST"))
+	log.Println("DB_PORT:", os.Getenv("DB_PORT"))
+	log.Println("DB_NAME:", os.Getenv("DB_NAME"))
+	log.Println("DB_USER:", os.Getenv("DB_USER"))
+
 	connStr := fmt.Sprintf(
 		"host=%s port=%s user=%s password=%s dbname=%s sslmode=require",
 		os.Getenv("DB_HOST"),
@@ -20,6 +25,8 @@ func NewConnection() (*sql.DB, error) {
 		os.Getenv("DB_NAME"),
 	)
 
+	log.Println("Attempting PostgreSQL Connection")
+
 	db, err := sql.Open("postgres", connStr)
 	if err != nil {
 		return nil, err
@@ -27,6 +34,7 @@ func NewConnection() (*sql.DB, error) {
 
 	err = db.Ping()
 	if err != nil {
+		log.Println("Database Ping Error:", err)
 		return nil, err
 	}
 
