@@ -4,13 +4,16 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strconv"
 
 	"github.com/joho/godotenv"
 
 	"notification-consumer/internal/consumer"
 	"notification-consumer/internal/logger"
 	"notification-consumer/internal/monitoring"
+	"notification-consumer/internal/processor"
 	"notification-consumer/internal/service"
+	"notification-consumer/internal/worker"
 
 	"notification-consumer/pkg/postgres"
 	"notification-consumer/pkg/servicebus"
@@ -29,9 +32,7 @@ func main() {
 	// Verify App Insights Connection String
 	log.Println(
 		"App Insights Loaded:",
-		os.Getenv(
-			"APPINSIGHTS_CONNECTION_STRING",
-		) != "",
+		os.Getenv("APPINSIGHTS_CONNECTION_STRING") != "",
 	)
 
 	// Initialize Application Insights
@@ -48,13 +49,41 @@ func main() {
 		log.Fatal(err)
 	}
 
-	log.Println(
-		"Database Connected Successfully",
-	)
+	log.Println("Database Connected Successfully")
 
 	service.SetDB(db)
 
+	// ==============================
+	// Worker Pool Configuration
+	// ==============================
+
+	workerCount := 5
+
+	if value := os.Getenv("WORKER_COUNT"); value != "" {
+
+		n, err := strconv.Atoi(value)
+
+		if err == nil {
+			workerCount = n
+		}
+	}
+
+	worker.Jobs = make(chan worker.Job, 100)
+
+	worker.StartWorkerPool(
+		workerCount,
+		processor.Process,
+	)
+
+	log.Printf(
+		"Worker Pool Started With %d Workers",
+		workerCount,
+	)
+
+	// ==============================
 	// Service Bus Configuration
+	// ==============================
+
 	connString := os.Getenv(
 		"SERVICEBUS_CONNECTION_STRING",
 	)
@@ -82,11 +111,10 @@ func main() {
 	)
 
 	// Create Receiver and Client
-	receiver, client, err :=
-		servicebus.NewReceiver(
-			connString,
-			queue,
-		)
+	receiver, client, err := servicebus.NewReceiver(
+		connString,
+		queue,
+	)
 
 	if err != nil {
 		log.Fatal(err)

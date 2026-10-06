@@ -5,11 +5,9 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"notification-consumer/internal/audit"
-	"notification-consumer/internal/dlq"
 	"notification-consumer/internal/models"
 	"notification-consumer/internal/monitoring"
-	"notification-consumer/internal/processor"
+	"notification-consumer/internal/worker"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/messaging/azservicebus"
 	"github.com/microsoft/ApplicationInsights-Go/appinsights"
@@ -87,154 +85,36 @@ func StartConsumer(
 			)
 
 			fmt.Println("===================================")
+
 			fmt.Printf(
 				"Notification ID : %d\n",
 				notification.ID,
 			)
+
 			fmt.Printf(
 				"Channel         : %s\n",
 				notification.Channel,
 			)
+
 			fmt.Printf(
 				"Email           : %s\n",
 				notification.Recipient,
 			)
+
 			fmt.Printf(
 				"Phone Number    : %s\n",
 				notification.PhoneNumber,
 			)
 
-			fmt.Println("Processing Notification...")
 			fmt.Println("===================================")
 
-			err = processor.Process(
-				notification,
-				msg.MessageID,
-			)
-
-			if err != nil {
-
-				fmt.Printf(
-					"❌ Processing Failed: %v\n",
-					err,
-				)
-
-				trackFailure(
-					msg.MessageID,
-					fmt.Sprintf("%d", notification.ID),
-					err.Error(),
-				)
-
-				retryCount := getRetryCount(msg)
-
-				if retryCount >= MaxRetryCount {
-
-					fmt.Println(
-						"❌ Max Retries Reached",
-					)
-
-					fmt.Println(
-						"❌ Moving Message To DLQ",
-					)
-
-					dlq.MoveToDLQ(
-						notification,
-						err.Error(),
-					)
-
-					_ = receiver.DeadLetterMessage(
-						context.Background(),
-						msg,
-						&azservicebus.DeadLetterOptions{
-							Reason: toPtr(
-								"MAX_RETRIES_EXCEEDED",
-							),
-							ErrorDescription: toPtr(
-								err.Error(),
-							),
-						},
-					)
-
-					continue
-				}
-
-				incrementRetryCount(msg)
-
-				fmt.Printf(
-					"Retry Attempt %d\n",
-					retryCount+1,
-				)
-
-				_ = receiver.AbandonMessage(
-					context.Background(),
-					msg,
-					nil,
-				)
-
-				continue
+			worker.Jobs <- worker.Job{
+				Notification: notification,
+				MessageID:    msg.MessageID,
 			}
-
-			// ==================================
-			// ARCHIVE SUCCESSFUL MESSAGE
-			// ==================================
-
-			err = audit.SaveToAuditQueue(
-				client,
-				msg.Body,
-				msg.MessageID,
-				notification.ID,
-			)
-
-			if err != nil {
-
-				fmt.Println(
-					"❌ Audit Queue Error:",
-					err,
-				)
-
-				continue
-			}
-
-			fmt.Println(
-				"✅ Message Archived To Audit Queue",
-			)
-
-			// ==================================
-			// COMPLETE SERVICE BUS MESSAGE
-			// ==================================
-
-			err = receiver.CompleteMessage(
-				context.Background(),
-				msg,
-				nil,
-			)
-
-			if err != nil {
-
-				fmt.Println(
-					"❌ Complete Error:",
-					err,
-				)
-
-				continue
-			}
-
-			fmt.Println(
-				"✅ Message Completed Successfully",
-			)
 
 			fmt.Printf(
-				"✅ Notification %d Processed Successfully\n",
-				notification.ID,
-			)
-
-			fmt.Printf(
-				"✅ Azure Message ID: %s\n",
-				msg.MessageID,
-			)
-
-			trackSuccess(
-				msg.MessageID,
+				"✅ Notification %d queued to Worker Pool\n",
 				notification.ID,
 			)
 
